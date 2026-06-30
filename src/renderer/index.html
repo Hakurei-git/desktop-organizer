@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Desktop Organizer</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main id="app" class="dock collapsed mode-collapsed edge-right">
+      <button id="dockHandle" class="dock-handle" type="button" title="Desktop Organizer">
+        <img id="handleSkin" class="handle-skin" alt="" />
+        <span id="handleMark" class="handle-mark" aria-hidden="true"></span>
+      </button>
+
+      <section class="panel" aria-label="Desktop Organizer">
+        <header id="dragHeader" class="panel-header">
+          <div class="title-block">
+            <span id="appTitle" class="app-title">Desktop Organizer</span>
+            <span id="scanStatus" class="scan-status">Idle</span>
+          </div>
+          <div class="header-actions">
+            <button id="desktopIconsQuickBtn" class="icon-button desktop-icons-button" type="button">Hide Icons</button>
+            <button id="scanBtn" class="icon-button" type="button" title="Scan">Scan</button>
+            <button id="hideBtn" class="icon-button" type="button" title="Hide">Hide</button>
+          </div>
+        </header>
+
+        <div id="panelScroll" class="panel-scroll">
+          <div class="search-row">
+            <input id="searchInput" type="search" placeholder="Search apps and files" />
+            <button id="allSearchBtn" type="button" title="Search all categories">All</button>
+            <button id="newCategoryBtn" type="button" title="New category">+</button>
+          </div>
+
+          <nav id="categoryList" class="category-list" aria-label="Categories"></nav>
+
+          <section class="content-band">
+            <div class="content-toolbar">
+              <div>
+                <span id="activeCategoryName" class="section-title">All Items</span>
+                <span id="itemCount" class="muted-count">0</span>
+              </div>
+              <div class="toolbar-actions">
+                <button id="selectVisibleBtn" type="button">Select</button>
+                <button id="moveBtn" type="button">Move</button>
+                <button id="undoBtn" type="button">Undo</button>
+              </div>
+            </div>
+            <div id="itemList" class="item-list"></div>
+          </section>
+
+          <section class="settings-band">
+            <details>
+              <summary id="settingsSummary">Settings</summary>
+              <div class="settings-grid">
+                <label><span id="languageLabel">Language</span><select id="languageSelect"><option value="zh-CN">Chinese</option><option value="en-US">English</option></select></label>
+                <label><span id="edgeLabel">Edge</span><select id="edgeSelect"><option id="edgeLeftOption" value="left">Left</option><option id="edgeRightOption" value="right">Right</option><option id="edgeTopOption" value="top">Top</option><option id="edgeBottomOption" value="bottom">Bottom</option></select></label>
+                <label><span id="opacityLabel">Handle opacity</span><input id="opacityInput" type="range" min="0.25" max="1" step="0.01" /></label>
+                <label><span id="panelOpacityLabel">Panel opacity</span><input id="panelOpacityInput" type="range" min="0.35" max="1" step="0.01" /></label>
+                <label><span id="panelBlurLabel">Background blur</span><input id="panelBlurInput" type="range" min="0" max="40" step="1" /></label>
+                <label><span id="wakeRadiusLabel">Wake radius</span><input id="wakeRadiusInput" type="range" min="24" max="260" step="4" /></label>
+                <label><span id="hideRadiusLabel">Hide radius</span><input id="hideRadiusInput" type="range" min="80" max="700" step="10" /></label>
+                <label><span id="animationLabel">Animation</span><input id="animationInput" type="range" min="0" max="800" step="20" /></label>
+                <label><span id="hideDelayLabel">Hide delay</span><input id="delayInput" type="range" min="150" max="2500" step="50" /></label>
+                <label class="checkbox-label"><input id="loginInput" type="checkbox" /><span id="loginLabel">Launch at login</span></label>
+                <label class="checkbox-label"><input id="desktopOnlyInput" type="checkbox" /><span id="desktopOnlyLabel">Desktop only</span></label>
+                <label class="checkbox-label"><input id="suppressMaximizedInput" type="checkbox" /><span id="suppressMaximizedLabel">Do not appear over maximized windows</span></label>
+                <label class="checkbox-label"><input id="hideIconsInput" type="checkbox" /><span id="hideIconsLabel">Hide desktop icons after scan</span></label>
+                <label class="checkbox-label"><input id="restoreIconsInput" type="checkbox" /><span id="restoreIconsLabel">Restore icons on quit</span></label>
+              </div>
+              <div class="skin-preview-row"><div id="panelSkinPreview" class="panel-skin-preview">Appearance Preview</div></div>
+              <div class="settings-actions">
+                <button id="showDesktopIconsBtn" type="button">Show Desktop Icons</button>
+                <button id="hideDesktopIconsBtn" type="button">Hide Desktop Icons</button>
+                <button id="panelSkinBtn" type="button">Panel Skin</button>
+                <button id="resetPanelSkinBtn" type="button">Reset Panel Skin</button>
+                <button id="skinBtn" type="button">Button Skin</button>
+                <button id="resetSkinBtn" type="button">Reset Skin</button>
+              </div>
+            </details>
+
+            <details>
+              <summary id="sourcesSummary">Sources</summary>
+              <div class="source-actions"><button id="addSourceBtn" type="button">Add Folder</button></div>
+              <div id="sourceList" class="source-list"></div>
+            </details>
+          </section>
+        </div>
+      </section>
+    </main>
+
+    <div id="skinModal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-panel skin-modal-panel">
+        <header class="modal-header">
+          <span id="cropTitle">Change Drawer Button Icon</span>
+          <button id="closeSkinModalBtn" type="button">Close</button>
+        </header>
+        <div class="crop-layout">
+          <div class="crop-stage"><canvas id="skinCanvas" width="280" height="280"></canvas></div>
+          <div class="skin-final-preview-wrap">
+            <span id="skinFinalPreviewLabel" class="skin-final-label">Final preview</span>
+            <div id="skinFinalPreview" class="skin-final-preview">
+              <img id="skinFinalPreviewImage" class="skin-final-preview-image" alt="" />
+              <span id="skinFinalPreviewMark" class="skin-final-preview-mark">DO</span>
+            </div>
+          </div>
+        </div>
+        <div class="crop-controls">
+          <label><span id="cropXLabel">X</span><input id="cropXInput" type="range" min="0" max="100" step="0.1" value="0" /></label>
+          <label><span id="cropYLabel">Y</span><input id="cropYInput" type="range" min="0" max="100" step="0.1" value="0" /></label>
+          <label><span id="cropSizeLabel">Size</span><input id="cropSizeInput" type="range" min="20" max="100" step="0.1" value="100" /></label>
+        </div>
+        <div class="modal-actions">
+          <button id="cancelSkinBtn" type="button">Cancel</button>
+          <button id="saveSkinBtn" type="button">Save Skin</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

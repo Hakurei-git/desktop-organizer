@@ -1,0 +1,84 @@
+{
+  "name": "desktop-organizer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A lightweight Electron desktop organizer with edge-docked drawer UI, local categorization, custom skins, and Windows desktop icon controls.",
+  "main": "src/main.js",
+  "scripts": {
+    "icons": "node scripts/generate-icons.mjs",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win nsis",
+    "dist:linux": "electron-builder --linux deb",
+    "start": "electron .",
+    "test": "node --test tests/*.test.js"
+  },
+  "devDependencies": {
+    "electron": "^42.5.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.local.desktoporganizer",
+    "productName": "Desktop Organizer",
+    "directories": {
+      "output": "dist",
+      "buildResources": "assets"
+    },
+    "files": [
+      "src/**/*",
+      "package.json",
+      "assets/**/*",
+      "!tests/**/*",
+      "!scripts/**/*",
+      "!dist/**/*",
+      "!out/**/*",
+      "!*.log"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Desktop Organizer",
+      "deleteAppDataOnUninstall": false,
+      "displayLanguageSelector": true,
+      "multiLanguageInstaller": true,
+      "installerLanguages": [
+        "en_US",
+        "zh_CN"
+      ]
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.png",
+      "category": "Utility",
+      "maintainer": "Desktop Organizer",
+      "syncDesktopName": true
+    }
+  },
+  "author": "Desktop Organizer",
+  "homepage": "https://github.com/Hakurei-git/desktop-organizer#readme",
+  "desktopName": "desktop-organizer",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Hakurei-git/desktop-organizer.git"
+  }
+}
