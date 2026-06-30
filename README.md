@@ -17,17 +17,21 @@ Desktop Organizer is a lightweight Electron desktop organizer for Windows. It pr
 - Custom drawer button image crop, panel skin crop, blur, opacity, and drawer animation settings.
 - Chinese and English in-app UI, plus Chinese/English Windows installer language selection.
 
-## Windows Installer
+## Download
 
-The Windows installer is included in this repository:
+Download the Windows installer from GitHub Releases:
+
+- [Latest release](https://github.com/Hakurei-git/desktop-organizer/releases/latest)
+
+The installer file is named like this:
 
 ```text
-dist/Desktop Organizer Setup 0.1.0.exe
+Desktop Organizer Setup 0.1.0.exe
 ```
 
 This MVP installer is unsigned, so Windows SmartScreen may show a warning. Uninstalling the app removes the program only; it does not delete files moved into `~/Documents/Desktop Organizer`.
 
-Linux `.deb` packaging is configured but not published here because it has not been tested in this release.
+Linux `.deb` packaging is configured but not published because it has not been tested in this release.
 
 ## Development
 
