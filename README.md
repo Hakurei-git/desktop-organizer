@@ -19,19 +19,15 @@ Desktop Organizer is a lightweight Electron desktop organizer for Windows. It pr
 
 ## Download
 
-Download the Windows installer from GitHub Releases:
+Download the Windows installer from the repository's GitHub Releases page:
 
 - [Latest release](https://github.com/Hakurei-git/desktop-organizer/releases/latest)
 
-The installer file is named like this:
-
-```text
-Desktop Organizer Setup 0.1.0.exe
-```
+The source repository intentionally does not store installer binaries. Built installers are release assets, while this repository keeps the application source, tests, and build configuration.
 
 This MVP installer is unsigned, so Windows SmartScreen may show a warning. Uninstalling the app removes the program only; it does not delete files moved into `~/Documents/Desktop Organizer`.
 
-Linux `.deb` packaging is configured but not published because it has not been tested in this release.
+Linux packaging config is present in the project, but Linux builds are not published until tested.
 
 ## Development
 
@@ -54,31 +50,9 @@ Syntax-check the JavaScript files:
 Get-ChildItem src,tests,scripts -Recurse -Include *.js,*.mjs | ForEach-Object { node --check $_.FullName }
 ```
 
-## Packaging
+## Maintainers
 
-Generate or refresh the built-in icon assets:
-
-```powershell
-npm.cmd run icons
-```
-
-Create an unpacked app for a fast packaging smoke test:
-
-```powershell
-npm.cmd run pack
-```
-
-Build the Windows NSIS installer into `dist/`:
-
-```powershell
-npm.cmd run dist:win
-```
-
-Build the Linux `.deb` package from Linux, WSL Ubuntu, or CI:
-
-```bash
-npm run dist:linux
-```
+Installer builds are generated locally or in CI and uploaded to GitHub Releases. Build output is ignored by Git so large generated binaries do not appear in the source tree.
 
 ## Privacy
 
