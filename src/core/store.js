@@ -1,6 +1,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { makeCustomCategory } = require("./catalog");
+const { itemKey, itemRef } = require("./item-refs");
 const { defaultDestinationRoot } = require("./mover");
 
 const DEFAULT_SETTINGS = {
@@ -54,7 +55,7 @@ const DEFAULT_APPEARANCE_SETTINGS = {
 
 function defaultState() {
   return {
-    version: 3,
+    version: 4,
     sources: [],
     categories: [],
     items: [],
@@ -66,6 +67,9 @@ function defaultState() {
     skins: { ...DEFAULT_SKINS },
     customCategories: [],
     manualAssignments: {},
+    pinnedItems: [],
+    recentItems: [],
+    ignoredItemKeys: [],
     iconCache: {}
   };
 }
@@ -110,13 +114,19 @@ function createStore(userDataPath) {
         moveHistory: Array.isArray(parsed.moveHistory) ? parsed.moveHistory : [],
         customCategories: Array.isArray(parsed.customCategories) ? parsed.customCategories : [],
         manualAssignments: parsed.manualAssignments && typeof parsed.manualAssignments === "object" ? parsed.manualAssignments : {},
+        pinnedItems: Array.isArray(parsed.pinnedItems) ? parsed.pinnedItems.filter((item) => item?.key) : [],
+        recentItems: Array.isArray(parsed.recentItems) ? parsed.recentItems.filter((item) => item?.key) : [],
+        ignoredItemKeys: Array.isArray(parsed.ignoredItemKeys) ? [...new Set(parsed.ignoredItemKeys.filter(Boolean))] : [],
         iconCache: parsed.iconCache && typeof parsed.iconCache === "object" ? parsed.iconCache : {}
       };
 
       if (Number(parsed.version || 0) < 3) {
         if (Number(state.dockSettings.peekSize) === 12) state.dockSettings.peekSize = DEFAULT_SETTINGS.peekSize;
         if (Number(state.dockSettings.peekWidth) === 54) state.dockSettings.peekWidth = DEFAULT_SETTINGS.peekWidth;
-        state.version = 3;
+        state.version = 4;
+        save();
+      } else if (Number(parsed.version || 0) < 4) {
+        state.version = 4;
         save();
       }
     } catch {
@@ -272,6 +282,71 @@ function createStore(userDataPath) {
     return state.manualAssignments;
   }
 
+  function pinItem(item) {
+    const ref = itemRef(item);
+    if (!ref.key) {
+      throw new Error("Item key is required.");
+    }
+    const pinnedAt = new Date().toISOString();
+    state.pinnedItems = [
+      { ...ref, pinnedAt },
+      ...state.pinnedItems.filter((candidate) => candidate.key !== ref.key)
+    ].slice(0, 12);
+    save();
+    return state.pinnedItems;
+  }
+
+  function unpinItem(itemOrKey) {
+    const key = typeof itemOrKey === "string" ? itemOrKey : itemKey(itemOrKey);
+    state.pinnedItems = state.pinnedItems.filter((candidate) => candidate.key !== key);
+    save();
+    return state.pinnedItems;
+  }
+
+  function addRecentItem(item) {
+    const ref = itemRef(item);
+    if (!ref.key) {
+      return state.recentItems;
+    }
+    const openedAt = new Date().toISOString();
+    state.recentItems = [
+      { ...ref, openedAt },
+      ...state.recentItems.filter((candidate) => candidate.key !== ref.key)
+    ].slice(0, 20);
+    save();
+    return state.recentItems;
+  }
+
+  function clearRecentItems() {
+    state.recentItems = [];
+    save();
+    return state.recentItems;
+  }
+
+  function ignoreItem(item) {
+    const key = itemKey(item);
+    if (!key) {
+      throw new Error("Item key is required.");
+    }
+    state.ignoredItemKeys = [...new Set([key, ...state.ignoredItemKeys])];
+    state.pinnedItems = state.pinnedItems.filter((candidate) => candidate.key !== key);
+    state.recentItems = state.recentItems.filter((candidate) => candidate.key !== key);
+    save();
+    return state.ignoredItemKeys;
+  }
+
+  function restoreIgnoredItem(key) {
+    state.ignoredItemKeys = state.ignoredItemKeys.filter((candidate) => candidate !== key);
+    save();
+    return state.ignoredItemKeys;
+  }
+
+  function clearIgnoredItems() {
+    state.ignoredItemKeys = [];
+    save();
+    return state.ignoredItemKeys;
+  }
+
   function addMoveHistory(historyEntry) {
     state.moveHistory = [historyEntry, ...state.moveHistory].slice(0, 20);
     save();
@@ -313,6 +388,13 @@ function createStore(userDataPath) {
     updateCustomCategory,
     deleteCustomCategory,
     assignItemCategory,
+    pinItem,
+    unpinItem,
+    addRecentItem,
+    clearRecentItems,
+    ignoreItem,
+    restoreIgnoredItem,
+    clearIgnoredItems,
     addMoveHistory,
     popLastMoveHistory,
     getIconCache,

@@ -11,7 +11,8 @@ const {
   ipcMain,
   nativeImage,
   screen,
-  shell
+  shell,
+  clipboard
 } = require("electron");
 const { scanSources } = require("./core/scanner");
 const { createMovePlan, applyMovePlan, undoMoveHistory } = require("./core/mover");
@@ -20,6 +21,7 @@ const { redactPath } = require("./core/privacy");
 const { createStore } = require("./core/store");
 const { DRAWER_STATES, nextDrawerState } = require("./core/drawer-state");
 const { isUsableIconDataUrl } = require("./core/icon-fallback");
+const { filterIgnoredItems, itemKey, itemRef, mergeItemRefs } = require("./core/item-refs");
 const { normalizeLanguage, translate } = require("./core/i18n");
 const { distanceToAreaEdges, virtualAreaFromAreas } = require("./core/virtual-edge");
 const { isDesktopSurfaceActive, getForegroundState } = require("./platform/desktop-state");
@@ -594,7 +596,11 @@ function buildCatalogForState(rawItems) {
   const filteredAssignments = Object.fromEntries(
     Object.entries(state.manualAssignments).filter(([, categoryId]) => categoryIds.has(categoryId))
   );
-  const items = applyManualAssignments(rawItems, filteredAssignments);
+  const assignedItems = applyManualAssignments(rawItems, filteredAssignments).map((item) => ({
+    ...item,
+    key: itemKey(item)
+  }));
+  const items = filterIgnoredItems(assignedItems, state.ignoredItemKeys);
   return { categories, items };
 }
 
@@ -624,13 +630,36 @@ async function performScan() {
     desktopSettings: store.getState().desktopSettings,
     appearanceSettings: store.getState().appearanceSettings,
     skins: store.getState().skins,
-    moveHistory: store.getState().moveHistory
+    moveHistory: store.getState().moveHistory,
+    pinnedItems: mergeItemRefs(store.getState().pinnedItems, latestScan.items),
+    recentItems: mergeItemRefs(store.getState().recentItems, latestScan.items),
+    ignoredItems: ignoredItemsForUi()
   };
+}
+
+function scannedItems() {
+  return latestScan?.items || store.getState().items || [];
+}
+
+function mergedPinnedItems() {
+  return mergeItemRefs(store.getState().pinnedItems, scannedItems());
+}
+
+function mergedRecentItems() {
+  const ignored = new Set(store.getState().ignoredItemKeys || []);
+  return mergeItemRefs(store.getState().recentItems, scannedItems()).filter((item) => !ignored.has(item.key));
+}
+
+function ignoredItemsForUi() {
+  return (store.getState().ignoredItemKeys || []).map((key) => ({
+    key,
+    label: redactPath(key, app.getPath("home"))
+  }));
 }
 
 function itemsByIds(itemIds) {
   const ids = new Set(itemIds || []);
-  const items = latestScan?.items || store.getState().items || [];
+  const items = scannedItems();
   if (!ids.size) {
     return items.filter((item) => item.movable);
   }
@@ -927,6 +956,45 @@ function registerIpc() {
   ipcMain.handle("categories:delete", (_event, categoryId) => store.deleteCustomCategory(categoryId));
   ipcMain.handle("categories:assignItem", (_event, itemId, categoryId) => store.assignItemCategory(itemId, categoryId));
 
+  ipcMain.handle("items:pin", (_event, item) => {
+    store.pinItem(item);
+    return mergedPinnedItems();
+  });
+
+  ipcMain.handle("items:unpin", (_event, itemOrKey) => {
+    store.unpinItem(itemOrKey);
+    return mergedPinnedItems();
+  });
+
+  ipcMain.handle("items:pinned:list", () => mergedPinnedItems());
+
+  ipcMain.handle("items:recent:list", () => mergedRecentItems());
+
+  ipcMain.handle("items:recent:clear", () => {
+    store.clearRecentItems();
+    return [];
+  });
+
+  ipcMain.handle("items:ignore", (_event, item) => {
+    store.ignoreItem(item);
+    const ignored = new Set(store.getState().ignoredItemKeys || []);
+    latestScan = latestScan ? { ...latestScan, items: latestScan.items.filter((candidate) => !ignored.has(candidate.key)) } : latestScan;
+    store.update({ items: scannedItems() });
+    return { items: scannedItems(), ignoredItems: ignoredItemsForUi(), pinnedItems: mergedPinnedItems(), recentItems: mergedRecentItems() };
+  });
+
+  ipcMain.handle("items:ignored:list", () => ignoredItemsForUi());
+
+  ipcMain.handle("items:ignore:restore", (_event, key) => {
+    store.restoreIgnoredItem(key);
+    return ignoredItemsForUi();
+  });
+
+  ipcMain.handle("items:ignore:clear", () => {
+    store.clearIgnoredItems();
+    return [];
+  });
+
   ipcMain.handle("search:update", (_event, query, activeCategoryId) => {
     mainWindow.webContents.send("search:updated", { query, activeCategoryId });
     return { query, activeCategoryId };
@@ -937,9 +1005,14 @@ function registerIpc() {
     if (!target) return "No target path.";
     if (/^https?:\/\//i.test(target)) {
       await shell.openExternal(target);
+      store.addRecentItem(itemRef(item));
       return "";
     }
-    return shell.openPath(target);
+    const error = await shell.openPath(target);
+    if (!error) {
+      store.addRecentItem(itemRef(item));
+    }
+    return error;
   });
 
   ipcMain.handle("app:revealItem", async (_event, item) => {
@@ -949,6 +1022,13 @@ function registerIpc() {
   });
 
   ipcMain.handle("app:redactPath", (_event, filePath) => redactPath(filePath, app.getPath("home")));
+
+  ipcMain.handle("app:copyPath", (_event, item) => {
+    const target = item?.sourcePath || item?.targetPath || "";
+    if (!target) return "No path.";
+    clipboard.writeText(target);
+    return "";
+  });
 
   ipcMain.handle("dock:getPointerState", () => {
     const point = screen.getCursorScreenPoint();

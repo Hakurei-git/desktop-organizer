@@ -10,7 +10,11 @@ Desktop Organizer is a lightweight Electron desktop organizer for Windows. It pr
 - Local classification rules for documents, images, videos, audio, archives, games, development tools, applications, folders, and other items.
 - Scans Desktop, Start Menu/application entries, and custom folders.
 - Search within the selected category or across all categories.
+- Pinned and recent shelves for frequently used and recently opened items.
+- Right-click actions for open, reveal, pin, change category, copy path, hide from list, and advanced move.
+- Ignore list for noisy desktop entries such as `desktop.ini`, with restore controls.
 - Custom categories with drag-and-drop item assignment.
+- Virtual organization by default: scanning updates the panel view without moving files.
 - Confirm-before-move workflow into `~/Documents/Desktop Organizer/<Category>/`, plus recent move undo.
 - One-click Windows desktop icon show/hide. This only toggles icon visibility and does not delete or move desktop files.
 - Per-item OS icons with fallback icons.

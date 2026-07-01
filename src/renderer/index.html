@@ -33,6 +33,17 @@
             <button id="newCategoryBtn" type="button" title="New category">+</button>
           </div>
 
+          <section id="quickShelves" class="quick-shelves hidden" aria-label="Quick access">
+            <div id="pinnedShelf" class="quick-shelf hidden">
+              <div id="pinnedShelfTitle" class="quick-shelf-title">Pinned</div>
+              <div id="pinnedShelfItems" class="quick-shelf-items"></div>
+            </div>
+            <div id="recentShelf" class="quick-shelf hidden">
+              <div id="recentShelfTitle" class="quick-shelf-title">Recent</div>
+              <div id="recentShelfItems" class="quick-shelf-items"></div>
+            </div>
+          </section>
+
           <nav id="categoryList" class="category-list" aria-label="Categories"></nav>
 
           <section class="content-band">
@@ -85,10 +96,18 @@
               <div class="source-actions"><button id="addSourceBtn" type="button">Add Folder</button></div>
               <div id="sourceList" class="source-list"></div>
             </details>
+
+            <details>
+              <summary id="ignoredSummary">Ignored Items</summary>
+              <div class="settings-actions"><button id="restoreAllIgnoredBtn" type="button">Restore All</button></div>
+              <div id="ignoredList" class="ignored-list"></div>
+            </details>
           </section>
         </div>
       </section>
     </main>
+
+    <div id="contextMenu" class="context-menu hidden" role="menu"></div>
 
     <div id="skinModal" class="modal hidden" role="dialog" aria-modal="true">
       <div class="modal-panel skin-modal-panel">

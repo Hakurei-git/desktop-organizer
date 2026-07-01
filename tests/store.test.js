@@ -4,6 +4,7 @@ const fsp = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
 const { createStore } = require("../src/core/store");
+const { itemKey } = require("../src/core/item-refs");
 
 async function tempStore() {
   const dir = await fsp.mkdtemp(path.join(os.tmpdir(), "desktop-organizer-store-"));
@@ -54,7 +55,41 @@ test("migrates legacy drawer handle defaults", async () => {
 
   const store = createStore(dir);
 
-  assert.equal(store.getState().version, 3);
+  assert.equal(store.getState().version, 4);
   assert.equal(store.getState().dockSettings.peekSize, 7);
   assert.equal(store.getState().dockSettings.peekWidth, 48);
+});
+
+
+test("persists pinned, recent, and ignored item state", async () => {
+  const store = await tempStore();
+  const item = {
+    id: "item-1",
+    name: "Visual Studio Code.lnk",
+    kind: "shortcut",
+    sourcePath: path.join(os.tmpdir(), "Code.lnk"),
+    targetPath: path.join(os.tmpdir(), "Code.exe"),
+    sourceLabel: "Desktop",
+    categoryId: "development"
+  };
+
+  store.pinItem(item);
+  store.pinItem(item);
+  assert.equal(store.getState().pinnedItems.length, 1);
+
+  for (let index = 0; index < 22; index += 1) {
+    store.addRecentItem({ ...item, sourcePath: path.join(os.tmpdir(), "app-" + index + ".lnk") });
+  }
+  assert.equal(store.getState().recentItems.length, 20);
+
+  store.addRecentItem(item);
+  assert.equal(store.getState().recentItems[0].name, "Visual Studio Code.lnk");
+
+  store.ignoreItem(item);
+  assert.equal(store.getState().ignoredItemKeys.includes(store.getState().recentItems[0]?.key), false);
+  assert.equal(store.getState().pinnedItems.length, 0);
+
+  const [ignoredKey] = store.getState().ignoredItemKeys;
+  store.restoreIgnoredItem(ignoredKey);
+  assert.equal(store.getState().ignoredItemKeys.length, 0);
 });

@@ -78,7 +78,23 @@ const TEXT = {
     "finalPreview": "\u6700\u7ec8\u6548\u679c",
     "cropX": "\u6a2a\u5411\u4f4d\u7f6e",
     "cropY": "\u7eb5\u5411\u4f4d\u7f6e",
-    "cropSize": "\u88c1\u526a\u5927\u5c0f"
+    "cropSize": "\u88c1\u526a\u5927\u5c0f",
+    "pinned": "\u5e38\u7528",
+    "recent": "\u6700\u8fd1\u6253\u5f00",
+    "pinItem": "\u56fa\u5b9a\u5230\u5e38\u7528",
+    "unpinItem": "\u53d6\u6d88\u56fa\u5b9a",
+    "reveal": "\u6253\u5f00\u6240\u5728\u4f4d\u7f6e",
+    "copyPath": "\u590d\u5236\u8def\u5f84",
+    "copied": "\u5df2\u590d\u5236\u8def\u5f84",
+    "hideFromList": "\u4ece\u5217\u8868\u9690\u85cf",
+    "itemHidden": "\u5df2\u4ece\u5217\u8868\u9690\u85cf",
+    "moveToOrganizer": "\u79fb\u52a8\u5230\u6258\u7ba1\u76ee\u5f55",
+    "changeCategory": "\u4fee\u6539\u5206\u7c7b",
+    "ignoredItems": "\u5ffd\u7565\u5217\u8868",
+    "restore": "\u6062\u590d",
+    "restoreAll": "\u5168\u90e8\u6062\u590d",
+    "noIgnoredItems": "\u6682\u65e0\u5ffd\u7565\u9879\u76ee",
+    "selectionMode": "\u9009\u62e9\u6a21\u5f0f",
   },
   "en-US": {
     "appTitle": "Desktop Organizer",
@@ -157,7 +173,23 @@ const TEXT = {
     "finalPreview": "Final preview",
     "cropX": "X position",
     "cropY": "Y position",
-    "cropSize": "Crop size"
+    "cropSize": "Crop size",
+    "pinned": "Pinned",
+    "recent": "Recent",
+    "pinItem": "Pin to Pinned",
+    "unpinItem": "Unpin",
+    "reveal": "Show in Folder",
+    "copyPath": "Copy Path",
+    "copied": "Path copied",
+    "hideFromList": "Hide from List",
+    "itemHidden": "Hidden from list",
+    "moveToOrganizer": "Move to Organizer",
+    "changeCategory": "Change Category",
+    "ignoredItems": "Ignored Items",
+    "restore": "Restore",
+    "restoreAll": "Restore All",
+    "noIgnoredItems": "No ignored items",
+    "selectionMode": "Selection Mode",
   }
 };
 
@@ -204,6 +236,11 @@ const state = {
   cropDragOrigin: { sx: 0, sy: 0, cropWidth: 0, cropHeight: 0 },
   composing: false,
   interacting: false,
+  selectionMode: false,
+  contextItem: null,
+  pinnedItems: [],
+  recentItems: [],
+  ignoredItems: [],
   dockMode: "collapsed"
 };
 
@@ -222,6 +259,13 @@ const elements = {
   searchInput: document.getElementById("searchInput"),
   allSearchBtn: document.getElementById("allSearchBtn"),
   newCategoryBtn: document.getElementById("newCategoryBtn"),
+  quickShelves: document.getElementById("quickShelves"),
+  pinnedShelf: document.getElementById("pinnedShelf"),
+  pinnedShelfTitle: document.getElementById("pinnedShelfTitle"),
+  pinnedShelfItems: document.getElementById("pinnedShelfItems"),
+  recentShelf: document.getElementById("recentShelf"),
+  recentShelfTitle: document.getElementById("recentShelfTitle"),
+  recentShelfItems: document.getElementById("recentShelfItems"),
   categoryList: document.getElementById("categoryList"),
   activeCategoryName: document.getElementById("activeCategoryName"),
   itemCount: document.getElementById("itemCount"),
@@ -272,6 +316,10 @@ const elements = {
   sourcesSummary: document.getElementById("sourcesSummary"),
   addSourceBtn: document.getElementById("addSourceBtn"),
   sourceList: document.getElementById("sourceList"),
+  ignoredSummary: document.getElementById("ignoredSummary"),
+  ignoredList: document.getElementById("ignoredList"),
+  restoreAllIgnoredBtn: document.getElementById("restoreAllIgnoredBtn"),
+  contextMenu: document.getElementById("contextMenu"),
   skinModal: document.getElementById("skinModal"),
   cropTitle: document.getElementById("cropTitle"),
   closeSkinModalBtn: document.getElementById("closeSkinModalBtn"),
@@ -326,6 +374,93 @@ function categoryDisplayName(category) {
   return CATEGORY_NAMES[language()][category.id] || category.name;
 }
 
+function itemKey(item = {}) {
+  return item.key || String(item.sourcePath || item.targetPath || item.id || item.name || "").toLowerCase();
+}
+
+function ignoredKeySet() {
+  return new Set((state.ignoredItems || []).map((item) => item.key));
+}
+
+function isPinned(item) {
+  const key = itemKey(item);
+  return Boolean(key && (state.pinnedItems || []).some((candidate) => candidate.key === key));
+}
+
+function currentItemForRef(ref) {
+  const key = itemKey(ref);
+  return state.items.find((item) => itemKey(item) === key) || ref;
+}
+
+async function refreshQuickItems() {
+  state.pinnedItems = await api.listPinnedItems();
+  state.recentItems = await api.listRecentItems();
+  renderShelves();
+}
+
+function appendAsyncIcon(parent, item, category) {
+  const iconCacheKey = itemIconCacheKey(item);
+  const cachedIcon = state.iconDataUrlCache.get(iconCacheKey);
+  if (cachedIcon) {
+    parent.appendChild(itemIconImage(cachedIcon));
+    return;
+  }
+  const iconHolder = fallbackIcon(category);
+  parent.appendChild(iconHolder);
+  api.getItemIcon(item).then((dataUrl) => {
+    if (!dataUrl || !parent.isConnected || !iconHolder.isConnected) return;
+    const image = itemIconImage();
+    image.onload = () => {
+      if (!parent.isConnected || !iconHolder.isConnected) return;
+      try {
+        if (!imageHasUsefulPixels(image)) return;
+      } catch {
+        return;
+      }
+      state.iconDataUrlCache.set(iconCacheKey, dataUrl);
+      iconHolder.replaceWith(image);
+    };
+    image.onerror = () => {};
+    image.src = dataUrl;
+  });
+}
+
+function createShelfButton(ref) {
+  const item = currentItemForRef(ref);
+  const category = state.categories.find((candidate) => candidate.id === item.categoryId);
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "shelf-item";
+  button.title = item.name || "";
+  appendAsyncIcon(button, item, category);
+  const label = document.createElement("span");
+  label.textContent = item.name || "";
+  button.appendChild(label);
+  button.addEventListener("click", () => openItem(item));
+  button.addEventListener("contextmenu", (event) => showContextMenu(event, item));
+  return button;
+}
+
+function renderShelf(container, titleNode, items, limit) {
+  container.classList.toggle("hidden", !items.length || Boolean(state.query));
+  titleNode.textContent = titleNode === elements.pinnedShelfTitle ? t("pinned") : t("recent");
+  const list = titleNode === elements.pinnedShelfTitle ? elements.pinnedShelfItems : elements.recentShelfItems;
+  list.innerHTML = "";
+  for (const item of items.slice(0, limit)) {
+    list.appendChild(createShelfButton(item));
+  }
+}
+
+function renderShelves() {
+  const ignored = ignoredKeySet();
+  const pinned = (state.pinnedItems || []).filter((item) => !ignored.has(item.key));
+  const recent = (state.recentItems || []).filter((item) => !ignored.has(item.key) && !pinned.some((pinnedItem) => pinnedItem.key === item.key));
+  renderShelf(elements.pinnedShelf, elements.pinnedShelfTitle, pinned, 12);
+  renderShelf(elements.recentShelf, elements.recentShelfTitle, recent, 8);
+  const visible = !state.query && (pinned.length || recent.length);
+  elements.quickShelves.classList.toggle("hidden", !visible);
+}
+
 function categoryCounts() {
   const counts = new Map();
   for (const item of state.items) {
@@ -357,7 +492,10 @@ function updateActionState() {
     const item = state.items.find((candidate) => candidate.id === id);
     return item && item.movable;
   }).length;
+  elements.moveBtn.hidden = !state.selectionMode;
+  elements.undoBtn.hidden = !state.selectionMode;
   elements.moveBtn.disabled = selectedMovableCount === 0;
+  elements.selectVisibleBtn.textContent = state.selectionMode ? t("cancel") : t("select");
   elements.moveBtn.textContent = selectedMovableCount ? t("move") + " " + selectedMovableCount : t("move");
 }
 
@@ -458,7 +596,7 @@ function fallbackIcon(category) {
 }
 
 function itemIconCacheKey(item) {
-  return [item.id, item.sourcePath || "", item.targetPath || ""].join("|");
+  return [item.key || item.id || "", item.sourcePath || "", item.targetPath || ""].join("|");
 }
 
 function itemIconImage(dataUrl) {
@@ -493,6 +631,7 @@ function imageHasUsefulPixels(image) {
 function renderItems() {
   const category = activeCategory();
   const items = visibleItems();
+  elements.app.classList.toggle("selection-mode", state.selectionMode);
   elements.activeCategoryName.textContent = category ? categoryDisplayName(category) : t("allItems");
   elements.itemCount.textContent = String(items.length);
   elements.itemList.innerHTML = "";
@@ -509,7 +648,10 @@ function renderItems() {
   for (const item of items) {
     const itemCategory = state.categories.find((candidate) => candidate.id === item.categoryId);
     const row = document.createElement("article");
-    row.className = "item-row" + (item.movable ? "" : " not-movable");
+    const rowClasses = ["item-row"];
+    if (state.selectionMode) rowClasses.push("selection-mode");
+    if (!item.movable) rowClasses.push("not-movable");
+    row.className = rowClasses.join(" ");
     row.draggable = true;
     row.addEventListener("dragstart", (event) => {
       event.dataTransfer.setData("text/plain", item.id);
@@ -517,8 +659,9 @@ function renderItems() {
       markInteracting(true);
     });
     row.addEventListener("dragend", () => releaseInteractingSoon());
+    row.addEventListener("contextmenu", (event) => showContextMenu(event, item));
 
-    if (item.movable) {
+    if (state.selectionMode && item.movable) {
       const checkbox = document.createElement("input");
       checkbox.type = "checkbox";
       checkbox.checked = state.selectedIds.has(item.id);
@@ -576,10 +719,7 @@ function renderItems() {
     openButton.type = "button";
     openButton.className = "open-button";
     openButton.textContent = t("open");
-    openButton.addEventListener("click", async () => {
-      const error = await api.launchItem(item);
-      if (error) setStatus(error);
-    });
+    openButton.addEventListener("click", () => openItem(item));
     actions.append(infoButton, openButton);
     row.appendChild(actions);
     elements.itemList.appendChild(row);
@@ -671,7 +811,6 @@ function applyI18n() {
   updateDesktopIconsQuickButton();
   elements.searchInput.placeholder = t("searchPlaceholder");
   elements.allSearchBtn.textContent = t("all");
-  elements.selectVisibleBtn.textContent = t("select");
   elements.undoBtn.textContent = t("undo");
   elements.settingsSummary.textContent = t("settings");
   elements.languageLabel.textContent = t("language");
@@ -700,6 +839,10 @@ function applyI18n() {
   elements.resetSkinBtn.textContent = t("resetSkin");
   elements.sourcesSummary.textContent = t("sources");
   elements.addSourceBtn.textContent = t("addFolder");
+  if (elements.pinnedShelfTitle) elements.pinnedShelfTitle.textContent = t("pinned");
+  if (elements.recentShelfTitle) elements.recentShelfTitle.textContent = t("recent");
+  if (elements.ignoredSummary) elements.ignoredSummary.textContent = t("ignoredItems") + " " + (state.ignoredItems || []).length;
+  if (elements.restoreAllIgnoredBtn) elements.restoreAllIgnoredBtn.textContent = t("restoreAll");
   configureSkinModalForTarget();
   elements.closeSkinModalBtn.textContent = t("close");
   elements.cancelSkinBtn.textContent = t("cancel");
@@ -740,8 +883,10 @@ function render() {
   applyAppearance();
   applyI18n();
   renderCategories();
+  renderShelves();
   renderItems();
   renderSources();
+  renderIgnoredItems();
   applySettingsToControls();
 }
 
@@ -753,6 +898,9 @@ async function scan() {
     state.categories = result.categories;
     state.items = result.items;
     state.sources = await api.listSources();
+    state.pinnedItems = result.pinnedItems || [];
+    state.recentItems = result.recentItems || [];
+    state.ignoredItems = result.ignoredItems || [];
     state.settings = result.settings;
     state.desktopSettings = result.desktopSettings;
     state.appearanceSettings = result.appearanceSettings || state.appearanceSettings;
@@ -779,6 +927,9 @@ async function loadSettings() {
   state.skins = await api.getSkin();
   state.sources = await api.listSources();
   state.categories = await api.listCategories();
+  state.pinnedItems = await api.listPinnedItems();
+  state.recentItems = await api.listRecentItems();
+  state.ignoredItems = await api.listIgnoredItems();
   render();
 }
 
@@ -860,23 +1011,163 @@ function schedulePointerLeave() {
   releaseInteractingSoon();
 }
 
-async function moveSelected() {
-  const selected = Array.from(state.selectedIds);
-  if (!selected.length) return;
-  const plan = await api.previewMove(selected);
-  if (!plan.items.length) {
-    setStatus(t("nothingMovable"));
+async function openItem(item) {
+  const error = await api.launchItem(item);
+  if (error) {
+    setStatus(error);
     return;
   }
+  await refreshQuickItems();
+}
+
+async function moveItems(itemIds) {
+  const plan = await api.previewMove(itemIds);
+  if (!plan.items.length) {
+    setStatus(t("nothingMovable"));
+    return false;
+  }
   const confirmed = window.confirm(t("moveConfirm"));
-  if (!confirmed) return;
+  if (!confirmed) return false;
   setStatus(t("moving"));
   const history = await api.applyMove(plan);
   const moved = history.items.filter((item) => item.status === "moved").length;
   const failed = history.items.filter((item) => item.status === "failed").length;
-  state.selectedIds.clear();
   setStatus(failed ? moved + " " + t("moved") + ", " + failed + " " + t("failed") : moved + " " + t("moved"));
   await scan();
+  return true;
+}
+
+function hideContextMenu() {
+  elements.contextMenu.classList.add("hidden");
+  elements.contextMenu.innerHTML = "";
+  state.contextItem = null;
+  releaseInteractingSoon();
+}
+
+function contextMenuButton(label, handler, danger = false) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.textContent = label;
+  if (danger) button.classList.add("danger");
+  button.addEventListener("click", async () => {
+    try {
+      await handler();
+    } finally {
+      hideContextMenu();
+    }
+  });
+  return button;
+}
+
+function positionContextMenu(event) {
+  const menu = elements.contextMenu;
+  const width = 220;
+  const height = Math.min(360, window.innerHeight - 16);
+  const left = Math.min(event.clientX, window.innerWidth - width - 8);
+  const top = Math.min(event.clientY, window.innerHeight - height - 8);
+  menu.style.left = Math.max(8, left) + "px";
+  menu.style.top = Math.max(8, top) + "px";
+}
+
+function showContextMenu(event, item) {
+  event.preventDefault();
+  event.stopPropagation();
+  markInteracting(true);
+  state.contextItem = item;
+  const menu = elements.contextMenu;
+  menu.innerHTML = "";
+  const title = document.createElement("div");
+  title.className = "context-title";
+  title.textContent = item.name || "";
+  menu.appendChild(title);
+  menu.appendChild(contextMenuButton(t("open"), () => openItem(item)));
+  menu.appendChild(contextMenuButton(t("reveal"), async () => {
+    const error = await api.revealItem(item);
+    if (error) setStatus(error);
+  }));
+  menu.appendChild(contextMenuButton(isPinned(item) ? t("unpinItem") : t("pinItem"), async () => {
+    state.pinnedItems = isPinned(item) ? await api.unpinItem(itemKey(item)) : await api.pinItem(item);
+    renderShelves();
+  }));
+  menu.appendChild(contextMenuButton(t("copyPath"), async () => {
+    const error = await api.copyPath(item);
+    setStatus(error || t("copied"));
+  }));
+  if (item.movable && item.id) {
+    menu.appendChild(contextMenuButton(t("moveToOrganizer"), () => moveItems([item.id])));
+  }
+  if (item.id) {
+    const categoryTitle = document.createElement("div");
+    categoryTitle.className = "context-section-title";
+    categoryTitle.textContent = t("changeCategory");
+    menu.appendChild(categoryTitle);
+    for (const category of state.categories) {
+      menu.appendChild(contextMenuButton(categoryDisplayName(category), async () => {
+        await api.assignItemCategory(item.id, category.id);
+        const current = state.items.find((candidate) => candidate.id === item.id);
+        if (current) {
+          current.categoryId = category.id;
+          current.manualCategory = true;
+          current.reason = t("manualCategoryReason");
+        }
+        render();
+      }));
+    }
+  }
+  menu.appendChild(contextMenuButton(t("hideFromList"), async () => {
+    const result = await api.ignoreItem(item);
+    state.items = result.items;
+    state.pinnedItems = result.pinnedItems;
+    state.recentItems = result.recentItems;
+    state.ignoredItems = result.ignoredItems;
+    state.selectedIds.delete(item.id);
+    setStatus(t("itemHidden"));
+    render();
+  }, true));
+  positionContextMenu(event);
+  menu.classList.remove("hidden");
+}
+
+function renderIgnoredItems() {
+  if (!elements.ignoredList) return;
+  const ignored = state.ignoredItems || [];
+  elements.ignoredSummary.textContent = t("ignoredItems") + " " + ignored.length;
+  elements.restoreAllIgnoredBtn.textContent = t("restoreAll");
+  elements.restoreAllIgnoredBtn.disabled = ignored.length === 0;
+  elements.ignoredList.innerHTML = "";
+  if (!ignored.length) {
+    const empty = document.createElement("div");
+    empty.className = "ignored-row empty";
+    empty.textContent = t("noIgnoredItems");
+    elements.ignoredList.appendChild(empty);
+    return;
+  }
+  for (const ignoredItem of ignored) {
+    const row = document.createElement("div");
+    row.className = "ignored-row";
+    const label = document.createElement("span");
+    label.textContent = ignoredItem.label || ignoredItem.key;
+    const restore = document.createElement("button");
+    restore.type = "button";
+    restore.textContent = t("restore");
+    restore.addEventListener("click", async () => {
+      state.ignoredItems = await api.restoreIgnoredItem(ignoredItem.key);
+      await scan();
+    });
+    row.append(label, restore);
+    elements.ignoredList.appendChild(row);
+  }
+}
+
+async function moveSelected() {
+  const selected = Array.from(state.selectedIds);
+  if (!selected.length) return;
+  const moved = await moveItems(selected);
+  if (moved) {
+    state.selectedIds.clear();
+    state.selectionMode = false;
+    render();
+  }
 }
 
 async function undoLastMove() {
@@ -1240,6 +1531,7 @@ function bindEvents() {
     state.composing = false;
     state.query = elements.searchInput.value;
     api.updateSearch(state.query, state.activeCategoryId);
+    renderShelves();
     renderItems();
     releaseInteractingSoon();
   });
@@ -1247,6 +1539,7 @@ function bindEvents() {
     if (state.composing) return;
     state.query = elements.searchInput.value;
     api.updateSearch(state.query, state.activeCategoryId);
+    renderShelves();
     renderItems();
   });
   elements.allSearchBtn.addEventListener("click", () => {
@@ -1261,16 +1554,22 @@ function bindEvents() {
     await scan();
   });
   elements.selectVisibleBtn.addEventListener("click", () => {
-    const movable = visibleItems().filter((item) => item.movable);
-    const allSelected = movable.every((item) => state.selectedIds.has(item.id));
-    for (const item of movable) {
-      if (allSelected) state.selectedIds.delete(item.id);
-      else state.selectedIds.add(item.id);
-    }
+    state.selectionMode = !state.selectionMode;
+    state.selectedIds.clear();
     renderItems();
   });
   elements.moveBtn.addEventListener("click", moveSelected);
   elements.undoBtn.addEventListener("click", undoLastMove);
+  elements.restoreAllIgnoredBtn.addEventListener("click", async () => {
+    state.ignoredItems = await api.clearIgnoredItems();
+    await scan();
+  });
+  document.addEventListener("click", (event) => {
+    if (!elements.contextMenu.classList.contains("hidden") && !event.target.closest(".context-menu")) hideContextMenu();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") hideContextMenu();
+  });
   elements.addSourceBtn.addEventListener("click", async () => {
     const source = await api.addSource();
     if (source) {
