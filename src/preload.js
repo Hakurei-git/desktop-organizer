@@ -32,6 +32,8 @@ contextBridge.exposeInMainWorld("organizer", {
   unpinItem: (itemOrKey) => ipcRenderer.invoke("items:unpin", itemOrKey),
   listPinnedItems: () => ipcRenderer.invoke("items:pinned:list"),
   listRecentItems: () => ipcRenderer.invoke("items:recent:list"),
+  getItemNote: (itemOrKey) => ipcRenderer.invoke("items:note:get", itemOrKey),
+  setItemNote: (itemOrKey, note) => ipcRenderer.invoke("items:note:set", itemOrKey, note),
   clearRecentItems: () => ipcRenderer.invoke("items:recent:clear"),
   ignoreItem: (item) => ipcRenderer.invoke("items:ignore", item),
   listIgnoredItems: () => ipcRenderer.invoke("items:ignored:list"),

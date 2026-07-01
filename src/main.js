@@ -973,6 +973,9 @@ function registerIpc() {
 
   ipcMain.handle("items:recent:list", () => mergedRecentItems());
 
+  ipcMain.handle("items:note:get", (_event, itemOrKey) => store.getItemNote(itemOrKey));
+  ipcMain.handle("items:note:set", (_event, itemOrKey, note) => store.setItemNote(itemOrKey, note));
+
   ipcMain.handle("items:recent:clear", () => {
     store.clearRecentItems();
     return [];

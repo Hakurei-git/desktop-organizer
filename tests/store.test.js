@@ -55,7 +55,7 @@ test("migrates legacy drawer handle defaults", async () => {
 
   const store = createStore(dir);
 
-  assert.equal(store.getState().version, 4);
+  assert.equal(store.getState().version, 5);
   assert.equal(store.getState().dockSettings.peekSize, 7);
   assert.equal(store.getState().dockSettings.peekWidth, 48);
 });
@@ -72,6 +72,12 @@ test("persists pinned, recent, and ignored item state", async () => {
     sourceLabel: "Desktop",
     categoryId: "development"
   };
+
+  store.setItemNote(item, "Daily development tools");
+  assert.equal(store.getItemNote(item), "Daily development tools");
+  assert.equal(createStore(store.userDataPath).getItemNote(item), "Daily development tools");
+  store.setItemNote(item, "");
+  assert.equal(store.getItemNote(item), "");
 
   store.pinItem(item);
   store.pinItem(item);

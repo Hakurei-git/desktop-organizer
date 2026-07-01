@@ -1,4 +1,4 @@
-﻿const api = window.organizer;
+const api = window.organizer;
 
 const TEXT = {
   "zh-CN": {
@@ -57,6 +57,22 @@ const TEXT = {
     "noItems": "\u6682\u65e0\u9879\u76ee",
     "noSearchResults": "\u6ca1\u6709\u641c\u7d22\u7ed3\u679c",
     "info": "\u8be6\u60c5",
+    "detailsTitle": "\u5e94\u7528\u8be6\u60c5",
+    "detailsCategory": "\u5206\u7c7b",
+    "detailsType": "\u7c7b\u578b",
+    "detailsSource": "\u6765\u6e90",
+    "customDescription": "\u81ea\u5b9a\u4e49\u8bf4\u660e",
+    "descriptionPlaceholder": "\u8f93\u5165\u8fd9\u4e2a\u5e94\u7528\u6216\u6587\u4ef6\u7684\u5907\u6ce8...",
+    "saveDescription": "\u4fdd\u5b58\u8bf4\u660e",
+    "descriptionSaved": "\u8bf4\u660e\u5df2\u4fdd\u5b58",
+    "shortcutKind": "\u5feb\u6377\u65b9\u5f0f",
+    "appKind": "\u5e94\u7528\u7a0b\u5e8f",
+    "folderKind": "\u6587\u4ef6\u5939",
+    "fileKind": "\u6587\u4ef6",
+    "shortcutSummary": "\u8fd9\u662f\u4e00\u4e2a\u5e94\u7528\u5feb\u6377\u65b9\u5f0f\uff0c\u53ef\u4ee5\u76f4\u63a5\u4ece\u6574\u7406\u9762\u677f\u542f\u52a8\u3002",
+    "appSummary": "\u8fd9\u662f\u4e00\u4e2a\u53ef\u6267\u884c\u5e94\u7528\uff0c\u53ef\u4ee5\u76f4\u63a5\u4ece\u6574\u7406\u9762\u677f\u542f\u52a8\u3002",
+    "folderSummary": "\u8fd9\u662f\u4e00\u4e2a\u6587\u4ef6\u5939\uff0c\u6253\u5f00\u540e\u53ef\u4ee5\u6d4f\u89c8\u5176\u4e2d\u5185\u5bb9\u3002",
+    "fileSummary": "\u8fd9\u662f\u4e00\u4e2a\u6309\u672c\u5730\u89c4\u5219\u5206\u7c7b\u7684\u6587\u4ef6\u3002",
     "open": "\u6253\u5f00",
     "remove": "\u79fb\u9664",
     "scanning": "\u6b63\u5728\u626b\u63cf",
@@ -152,6 +168,22 @@ const TEXT = {
     "noItems": "No items",
     "noSearchResults": "No search results",
     "info": "Info",
+    "detailsTitle": "Application Details",
+    "detailsCategory": "Category",
+    "detailsType": "Type",
+    "detailsSource": "Source",
+    "customDescription": "Custom description",
+    "descriptionPlaceholder": "Add a note about this application or file...",
+    "saveDescription": "Save Description",
+    "descriptionSaved": "Description saved",
+    "shortcutKind": "Shortcut",
+    "appKind": "Application",
+    "folderKind": "Folder",
+    "fileKind": "File",
+    "shortcutSummary": "This is an application shortcut that can be launched from the organizer.",
+    "appSummary": "This is an executable application that can be launched from the organizer.",
+    "folderSummary": "This is a folder. Open it to browse its contents.",
+    "fileSummary": "This file was grouped using local classification rules.",
     "open": "Open",
     "remove": "Remove",
     "scanning": "Scanning",
@@ -241,6 +273,7 @@ const state = {
   pinnedItems: [],
   recentItems: [],
   ignoredItems: [],
+  detailItem: null,
   dockMode: "collapsed"
 };
 
@@ -320,6 +353,24 @@ const elements = {
   ignoredList: document.getElementById("ignoredList"),
   restoreAllIgnoredBtn: document.getElementById("restoreAllIgnoredBtn"),
   contextMenu: document.getElementById("contextMenu"),
+  itemDetailModal: document.getElementById("itemDetailModal"),
+  itemDetailPanel: document.getElementById("itemDetailPanel"),
+  itemDetailTitle: document.getElementById("itemDetailTitle"),
+  closeItemDetailBtn: document.getElementById("closeItemDetailBtn"),
+  itemDetailIcon: document.getElementById("itemDetailIcon"),
+  itemDetailName: document.getElementById("itemDetailName"),
+  itemDetailSummary: document.getElementById("itemDetailSummary"),
+  itemDetailCategoryLabel: document.getElementById("itemDetailCategoryLabel"),
+  itemDetailCategory: document.getElementById("itemDetailCategory"),
+  itemDetailTypeLabel: document.getElementById("itemDetailTypeLabel"),
+  itemDetailType: document.getElementById("itemDetailType"),
+  itemDetailSourceLabel: document.getElementById("itemDetailSourceLabel"),
+  itemDetailSource: document.getElementById("itemDetailSource"),
+  itemDetailNoteLabel: document.getElementById("itemDetailNoteLabel"),
+  itemDetailNote: document.getElementById("itemDetailNote"),
+  revealItemDetailBtn: document.getElementById("revealItemDetailBtn"),
+  openItemDetailBtn: document.getElementById("openItemDetailBtn"),
+  saveItemDetailBtn: document.getElementById("saveItemDetailBtn"),
   skinModal: document.getElementById("skinModal"),
   cropTitle: document.getElementById("cropTitle"),
   closeSkinModalBtn: document.getElementById("closeSkinModalBtn"),
@@ -628,6 +679,77 @@ function imageHasUsefulPixels(image) {
   return visible > 12 && colored > 4;
 }
 
+function itemKindText(item) {
+  const key = item.kind === "shortcut" ? "shortcutKind" : item.kind === "app" ? "appKind" : item.kind === "folder" ? "folderKind" : "fileKind";
+  return t(key);
+}
+
+function defaultItemSummary(item) {
+  const key = item.kind === "shortcut" ? "shortcutSummary" : item.kind === "app" ? "appSummary" : item.kind === "folder" ? "folderSummary" : "fileSummary";
+  return t(key);
+}
+
+async function openItemDetails(item) {
+  const detailKey = itemKey(item);
+  const category = state.categories.find((candidate) => candidate.id === item.categoryId);
+  state.detailItem = item;
+  elements.itemDetailTitle.textContent = t("detailsTitle");
+  elements.closeItemDetailBtn.textContent = t("close");
+  elements.itemDetailName.textContent = item.name || t("detailsTitle");
+  elements.itemDetailSummary.textContent = defaultItemSummary(item);
+  elements.itemDetailCategoryLabel.textContent = t("detailsCategory");
+  elements.itemDetailCategory.textContent = category ? categoryDisplayName(category) : t("allItems");
+  elements.itemDetailTypeLabel.textContent = t("detailsType");
+  elements.itemDetailType.textContent = itemKindText(item);
+  elements.itemDetailSourceLabel.textContent = t("detailsSource");
+  elements.itemDetailSource.textContent = item.sourceLabel || "-";
+  elements.itemDetailNoteLabel.textContent = t("customDescription");
+  elements.itemDetailNote.placeholder = t("descriptionPlaceholder");
+  elements.itemDetailNote.value = "";
+  elements.revealItemDetailBtn.textContent = t("reveal");
+  elements.openItemDetailBtn.textContent = t("open");
+  elements.saveItemDetailBtn.textContent = t("saveDescription");
+  elements.itemDetailIcon.innerHTML = "";
+  appendAsyncIcon(elements.itemDetailIcon, item, category);
+  elements.itemDetailModal.classList.remove("hidden");
+  markInteracting(true);
+  const note = await api.getItemNote(item);
+  if (state.detailItem && itemKey(state.detailItem) === detailKey) {
+    elements.itemDetailNote.value = note || "";
+  }
+}
+
+function closeItemDetails() {
+  elements.itemDetailModal.classList.add("hidden");
+  state.detailItem = null;
+  elements.itemDetailNote.blur();
+  state.composing = false;
+  state.interacting = false;
+  releaseInteractingSoon();
+}
+
+async function saveItemDetails() {
+  if (!state.detailItem) return;
+  await api.setItemNote(state.detailItem, elements.itemDetailNote.value);
+  setStatus(t("descriptionSaved"));
+  closeItemDetails();
+}
+
+async function revealDetailItem() {
+  if (!state.detailItem) return;
+  const item = state.detailItem;
+  closeItemDetails();
+  const error = await api.revealItem(item);
+  if (error) setStatus(error);
+}
+
+async function launchDetailItem() {
+  if (!state.detailItem) return;
+  const item = state.detailItem;
+  closeItemDetails();
+  await openItem(item);
+}
+
 function renderItems() {
   const category = activeCategory();
   const items = visibleItems();
@@ -714,7 +836,7 @@ function renderItems() {
     const infoButton = document.createElement("button");
     infoButton.type = "button";
     infoButton.textContent = t("info");
-    infoButton.addEventListener("click", async () => setStatus(await api.redactPath(item.sourcePath)));
+    infoButton.addEventListener("click", () => openItemDetails(item));
     const openButton = document.createElement("button");
     openButton.type = "button";
     openButton.className = "open-button";
@@ -773,6 +895,7 @@ function applySkin() {
   }
 
   const panelDataUrl = state.skins && state.skins.panelSkinDataUrl;
+  document.body.classList.toggle("has-panel-skin", Boolean(panelDataUrl));
   if (panelDataUrl) {
     document.documentElement.style.setProperty("--panel-skin-image", "url(\"" + panelDataUrl + "\")");
     elements.app.classList.add("has-panel-skin");
@@ -988,7 +1111,7 @@ function hasActiveInput() {
 function releaseInteractingSoon() {
   window.clearTimeout(state.hideTimer);
   state.hideTimer = window.setTimeout(() => {
-    if (state.composing || state.dragging || !elements.skinModal.classList.contains("hidden") || hasActiveInput()) {
+    if (state.composing || state.dragging || !elements.skinModal.classList.contains("hidden") || !elements.itemDetailModal.classList.contains("hidden") || hasActiveInput()) {
       api.setPointerInside(true);
       return;
     }
@@ -1568,7 +1691,24 @@ function bindEvents() {
     if (!elements.contextMenu.classList.contains("hidden") && !event.target.closest(".context-menu")) hideContextMenu();
   });
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") hideContextMenu();
+    if (event.key !== "Escape") return;
+    hideContextMenu();
+    if (!elements.itemDetailModal.classList.contains("hidden")) closeItemDetails();
+  });
+  elements.itemDetailModal.addEventListener("click", (event) => {
+    if (event.target === elements.itemDetailModal) closeItemDetails();
+  });
+  elements.closeItemDetailBtn.addEventListener("click", closeItemDetails);
+  elements.saveItemDetailBtn.addEventListener("click", saveItemDetails);
+  elements.revealItemDetailBtn.addEventListener("click", revealDetailItem);
+  elements.openItemDetailBtn.addEventListener("click", launchDetailItem);
+  elements.itemDetailNote.addEventListener("compositionstart", () => {
+    state.composing = true;
+    markInteracting(true);
+  });
+  elements.itemDetailNote.addEventListener("compositionend", () => {
+    state.composing = false;
+    markInteracting(true);
   });
   elements.addSourceBtn.addEventListener("click", async () => {
     const source = await api.addSource();

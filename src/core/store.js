@@ -55,7 +55,7 @@ const DEFAULT_APPEARANCE_SETTINGS = {
 
 function defaultState() {
   return {
-    version: 4,
+    version: 5,
     sources: [],
     categories: [],
     items: [],
@@ -70,6 +70,7 @@ function defaultState() {
     pinnedItems: [],
     recentItems: [],
     ignoredItemKeys: [],
+    itemNotes: {},
     iconCache: {}
   };
 }
@@ -117,16 +118,16 @@ function createStore(userDataPath) {
         pinnedItems: Array.isArray(parsed.pinnedItems) ? parsed.pinnedItems.filter((item) => item?.key) : [],
         recentItems: Array.isArray(parsed.recentItems) ? parsed.recentItems.filter((item) => item?.key) : [],
         ignoredItemKeys: Array.isArray(parsed.ignoredItemKeys) ? [...new Set(parsed.ignoredItemKeys.filter(Boolean))] : [],
+        itemNotes: parsed.itemNotes && typeof parsed.itemNotes === "object" ? parsed.itemNotes : {},
         iconCache: parsed.iconCache && typeof parsed.iconCache === "object" ? parsed.iconCache : {}
       };
 
       if (Number(parsed.version || 0) < 3) {
         if (Number(state.dockSettings.peekSize) === 12) state.dockSettings.peekSize = DEFAULT_SETTINGS.peekSize;
         if (Number(state.dockSettings.peekWidth) === 54) state.dockSettings.peekWidth = DEFAULT_SETTINGS.peekWidth;
-        state.version = 4;
-        save();
-      } else if (Number(parsed.version || 0) < 4) {
-        state.version = 4;
+      }
+      if (Number(parsed.version || 0) < 5) {
+        state.version = 5;
         save();
       }
     } catch {
@@ -347,6 +348,25 @@ function createStore(userDataPath) {
     return state.ignoredItemKeys;
   }
 
+  function getItemNote(itemOrKey) {
+    const key = typeof itemOrKey === "string" ? itemOrKey : itemKey(itemOrKey);
+    return key ? String(state.itemNotes[key] || "") : "";
+  }
+
+  function setItemNote(itemOrKey, note) {
+    const key = typeof itemOrKey === "string" ? itemOrKey : itemKey(itemOrKey);
+    if (!key) {
+      throw new Error("Item key is required.");
+    }
+    const value = String(note || "").trim().slice(0, 1000);
+    const itemNotes = { ...state.itemNotes };
+    if (value) itemNotes[key] = value;
+    else delete itemNotes[key];
+    state.itemNotes = itemNotes;
+    save();
+    return value;
+  }
+
   function addMoveHistory(historyEntry) {
     state.moveHistory = [historyEntry, ...state.moveHistory].slice(0, 20);
     save();
@@ -395,6 +415,8 @@ function createStore(userDataPath) {
     ignoreItem,
     restoreIgnoredItem,
     clearIgnoredItems,
+    getItemNote,
+    setItemNote,
     addMoveHistory,
     popLastMoveHistory,
     getIconCache,

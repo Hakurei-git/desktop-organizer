@@ -109,6 +109,36 @@
 
     <div id="contextMenu" class="context-menu hidden" role="menu"></div>
 
+    <div id="itemDetailModal" class="modal hidden item-detail-modal" role="dialog" aria-modal="true" aria-labelledby="itemDetailTitle">
+      <article id="itemDetailPanel" class="modal-panel item-detail-panel">
+        <header class="modal-header">
+          <span id="itemDetailTitle">Application Details</span>
+          <button id="closeItemDetailBtn" type="button">Close</button>
+        </header>
+        <div class="item-detail-hero">
+          <div id="itemDetailIcon" class="item-detail-icon"></div>
+          <div class="item-detail-heading">
+            <strong id="itemDetailName"></strong>
+            <span id="itemDetailSummary"></span>
+          </div>
+        </div>
+        <dl class="item-detail-facts">
+          <div><dt id="itemDetailCategoryLabel">Category</dt><dd id="itemDetailCategory"></dd></div>
+          <div><dt id="itemDetailTypeLabel">Type</dt><dd id="itemDetailType"></dd></div>
+          <div><dt id="itemDetailSourceLabel">Source</dt><dd id="itemDetailSource"></dd></div>
+        </dl>
+        <label class="item-detail-note">
+          <span id="itemDetailNoteLabel">Custom description</span>
+          <textarea id="itemDetailNote" maxlength="1000" rows="4"></textarea>
+        </label>
+        <div class="modal-actions item-detail-actions">
+          <button id="revealItemDetailBtn" type="button">Show in Folder</button>
+          <button id="openItemDetailBtn" type="button">Open</button>
+          <button id="saveItemDetailBtn" type="button">Save</button>
+        </div>
+      </article>
+    </div>
+
     <div id="skinModal" class="modal hidden" role="dialog" aria-modal="true">
       <div class="modal-panel skin-modal-panel">
         <header class="modal-header">
