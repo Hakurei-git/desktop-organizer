@@ -27,11 +27,12 @@ const { distanceToAreaEdges, virtualAreaFromAreas } = require("./core/virtual-ed
 const { isDesktopSurfaceActive, getForegroundState } = require("./platform/desktop-state");
 const { getDesktopIconsHidden, setDesktopIconsHidden } = require("./platform/desktop-icons");
 
-app.disableHardwareAcceleration();
-app.commandLine.appendSwitch("disable-gpu");
-app.commandLine.appendSwitch("disable-gpu-compositing");
-app.commandLine.appendSwitch("disable-gpu-sandbox");
-if (process.env.DESKTOP_ORGANIZER_SMOKE === "1") {
+const isSmokeRun = process.env.DESKTOP_ORGANIZER_SMOKE === "1";
+if (isSmokeRun) {
+  app.disableHardwareAcceleration();
+  app.commandLine.appendSwitch("disable-gpu");
+  app.commandLine.appendSwitch("disable-gpu-compositing");
+  app.commandLine.appendSwitch("disable-gpu-sandbox");
   const smokeDataDir = path.join(os.tmpdir(), "desktop-organizer-smoke-" + process.pid);
   app.setPath("userData", smokeDataDir);
   app.commandLine.appendSwitch("in-process-gpu");
@@ -570,6 +571,7 @@ function createWindow() {
     height: 48,
     frame: false,
     transparent: true,
+    backgroundColor: "#00000000",
     resizable: false,
     movable: false,
     show: false,
@@ -584,6 +586,7 @@ function createWindow() {
     }
   });
 
+  mainWindow.setBackgroundColor("#00000000");
   mainWindow.setAlwaysOnTop(true, "screen-saver");
   mainWindow.loadFile(path.join(__dirname, "renderer", "index.html"));
   mainWindow.once("ready-to-show", () => setDockMode(DRAWER_STATES.collapsed, false));
